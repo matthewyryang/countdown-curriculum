@@ -1,0 +1,24 @@
+2025-04-06 15:24:09,348	INFO scripts.py:1282 -- Did not find any active Ray processes.
+2025-04-06 15:24:10,492	INFO usage_lib.py:472 -- Usage stats collection is enabled. To disable this, add `--disable-usage-stats` to the command that starts the cluster, or run the following command: `ray disable-usage-stats` before starting the cluster. See https://docs.ray.io/en/master/cluster/usage-stats.html for more details.
+2025-04-06 15:24:10,492	INFO scripts.py:861 -- [37mLocal node IP[39m: [1m10.1.1.81[22m
+2025-04-06 15:24:11,442	SUCC scripts.py:897 -- [32m--------------------[39m
+2025-04-06 15:24:11,442	SUCC scripts.py:898 -- [32mRay runtime started.[39m
+2025-04-06 15:24:11,442	SUCC scripts.py:899 -- [32m--------------------[39m
+2025-04-06 15:24:11,442	INFO scripts.py:901 -- [36mNext steps[39m
+2025-04-06 15:24:11,442	INFO scripts.py:904 -- To add another node to this Ray cluster, run
+2025-04-06 15:24:11,442	INFO scripts.py:907 -- [1m  ray start --address='10.1.1.81:6379'[22m
+2025-04-06 15:24:11,442	INFO scripts.py:916 -- To connect to this Ray cluster:
+2025-04-06 15:24:11,443	INFO scripts.py:918 -- [35mimport[39m[26m ray
+2025-04-06 15:24:11,443	INFO scripts.py:919 -- ray[35m.[39m[26minit()
+2025-04-06 15:24:11,443	INFO scripts.py:931 -- To submit a Ray job using the Ray Jobs CLI:
+2025-04-06 15:24:11,443	INFO scripts.py:932 -- [1m  RAY_ADDRESS='http://127.0.0.1:8265' ray job submit --working-dir . -- python my_script.py[22m
+2025-04-06 15:24:11,443	INFO scripts.py:941 -- See https://docs.ray.io/en/latest/cluster/running-applications/job-submission/index.html 
+2025-04-06 15:24:11,443	INFO scripts.py:945 -- for more information on submitting Ray jobs to the Ray cluster.
+2025-04-06 15:24:11,443	INFO scripts.py:950 -- To terminate the Ray runtime, run
+2025-04-06 15:24:11,443	INFO scripts.py:951 -- [1m  ray stop[22m
+2025-04-06 15:24:11,443	INFO scripts.py:954 -- To view the status of the cluster, use
+2025-04-06 15:24:11,443	INFO scripts.py:955 --   [1mray status[22m[26m
+2025-04-06 15:24:11,443	INFO scripts.py:959 -- To monitor and debug Ray, view the dashboard at 
+2025-04-06 15:24:11,443	INFO scripts.py:960 --   [1m127.0.0.1:8265[22m[26m
+2025-04-06 15:24:11,443	INFO scripts.py:967 -- [4mIf connection to the dashboard fails, check your firewall settings and network configuration.[24m
+slurmstepd: error: *** JOB 4516623 ON babel-14-9 CANCELLED AT 2025-04-06T15:34:05 ***

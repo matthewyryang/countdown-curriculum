@@ -130,6 +130,41 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> Dict[str,
         'prompt_length/clip_ratio':
             torch.mean(torch.eq(prompt_length, max_prompt_length).float()).detach().item(),
     }
+
+    # add metrics by difficulty
+    correct_lengths_by_difficulty = defaultdict(list)
+    incorrect_lengths_by_difficulty = defaultdict(list)
+    rewards_by_difficulty = defaultdict(list)
+
+    for nums, reward, length in zip(batch.non_tensor_batch['nums'], sequence_reward, response_length):
+        difficulty = len(nums)
+        binary_reward = 1 if reward > 0.9 else 0
+        
+        rewards_by_difficulty[difficulty].append(binary_reward)
+        if binary_reward == 1:
+            correct_lengths_by_difficulty[difficulty].append(length.detach().item())
+        else:
+            incorrect_lengths_by_difficulty[difficulty].append(length.detach().item())
+    
+    for difficulty in rewards_by_difficulty:
+        mean_reward = np.mean(rewards_by_difficulty[difficulty])
+        mean_length = np.mean(correct_lengths_by_difficulty[difficulty] + incorrect_lengths_by_difficulty[difficulty])
+        
+        if len(correct_lengths_by_difficulty[difficulty]) > 0:
+            mean_correct_length = np.mean(correct_lengths_by_difficulty[difficulty])
+        else:
+            mean_correct_length = -1
+        
+        if len(incorrect_lengths_by_difficulty[difficulty]) > 0:
+            mean_incorrect_length = np.mean(incorrect_lengths_by_difficulty[difficulty])
+        else:
+            mean_incorrect_length = -1
+        
+        metrics[f'difficulty/reward/{difficulty}'] = mean_reward
+        metrics[f'difficulty/0_length/{difficulty}'] = mean_correct_length
+        metrics[f'difficulty/1_length/{difficulty}'] = mean_incorrect_length
+        metrics[f'difficulty/length/{difficulty}'] = mean_length
+
     return metrics
 
 

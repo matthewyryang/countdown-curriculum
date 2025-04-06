@@ -134,17 +134,17 @@ class RLHFDataset(Dataset):
 
         print(f'dataset len: {len(self.dataframe)}')
 
-        # filter out too long prompts
-        if self.filter_overlong_prompts:
-            tokenizer = self.tokenizer
-            prompt_key = self.prompt_key
-            self.dataframe = self.dataframe.filter(
-                lambda doc: len(tokenizer.apply_chat_template(doc[prompt_key], add_generation_prompt=True)
-                               ) <= self.max_prompt_length,
-                num_proc=self.num_workers,
-                desc=f"Filtering prompts longer than {self.max_prompt_length} tokens")
+        # # filter out too long prompts
+        # if self.filter_overlong_prompts:
+        #     tokenizer = self.tokenizer
+        #     prompt_key = self.prompt_key
+        #     self.dataframe = self.dataframe.filter(
+        #         lambda doc: len(tokenizer.apply_chat_template(doc[prompt_key], add_generation_prompt=True)
+        #                        ) <= self.max_prompt_length,
+        #         num_proc=self.num_workers,
+        #         desc=f"Filtering prompts longer than {self.max_prompt_length} tokens")
 
-            print(f'filter dataset len: {len(self.dataframe)}')
+        #     print(f'filter dataset len: {len(self.dataframe)}')
 
     def resume_dataset_state(self):
         self.serialize_dataset = False if hasattr(self, 'original_parquet_files') else True
@@ -166,7 +166,8 @@ class RLHFDataset(Dataset):
 
         chat = row_dict.pop(self.prompt_key)
 
-        prompt_with_chat_template = self.tokenizer.apply_chat_template(chat, add_generation_prompt=True, tokenize=False)
+        prompt_with_chat_template = chat[0]['content']
+        # prompt_with_chat_template = self.tokenizer.apply_chat_template(chat, add_generation_prompt=True, tokenize=False)
 
         is_multi_modal = self.image_key in row_dict
         if is_multi_modal:  # expand image token
