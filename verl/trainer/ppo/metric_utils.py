@@ -21,6 +21,9 @@ import numpy as np
 from verl import DataProto
 from collections import Counter, defaultdict
 from functools import partial
+import seaborn as sns
+import matplotlib.pyplot as plt
+import os
 
 
 def reduce_metrics(metrics: Dict[str, List[Any]]) -> Dict[str, Any]:
@@ -45,7 +48,7 @@ def _compute_response_info(batch: DataProto) -> Dict[str, Any]:
     )
 
 
-def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> Dict[str, Any]:
+def compute_data_metrics(batch: DataProto, use_critic: bool = True, experiment_name: str = "", global_steps: int = 0, test_freq: int = -1) -> Dict[str, Any]:
     # TODO: add response length
     sequence_score = batch.batch['token_level_scores'].sum(-1)
     sequence_reward = batch.batch['token_level_rewards'].sum(-1)
@@ -164,6 +167,13 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> Dict[str,
         metrics[f'difficulty/0_length/{difficulty}'] = mean_correct_length
         metrics[f'difficulty/1_length/{difficulty}'] = mean_incorrect_length
         metrics[f'difficulty/length/{difficulty}'] = mean_length
+
+    if (global_steps - 1) % test_freq == 0:
+        # advantage histograms
+        advantages = valid_adv[:, 0].detach().cpu().numpy().tolist()
+        sns.histplot(advantages)
+        os.makedirs(f'outputs/{experiment_name}/{global_steps}', exist_ok=True)
+        plt.savefig(f'outputs/{experiment_name}/{global_steps}/advantage.png')
 
     return metrics
 

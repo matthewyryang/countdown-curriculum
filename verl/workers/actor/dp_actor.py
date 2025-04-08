@@ -304,14 +304,14 @@ class DataParallelPPOActor(BasePPOActor):
                         
                         # if advantage is negative
                         if a[0] < 0:
-                            # do not propagate loss for </think> ...
+                        # do not propagate loss for </think> ...
                             indices = torch.nonzero(r == 524, as_tuple=False)
                             if len(indices) > 0:
                                 first_index = indices[0].item()
                                 print(f"Response at index {first_index}: {r[first_index]}")
 
                                 eos_mask[i, first_index:] = 0
-                            # eos_mask[i, 0:] = 0
+                                eos_mask[i, 0:] = 0
 
                     pg_loss, pg_clipfrac, ppo_kl, pg_clipfrac_lower = compute_policy_loss(
                         old_log_prob=old_log_prob,

@@ -969,7 +969,7 @@ class RayPPOTrainer(object):
                             self._save_checkpoint()
 
                 # collect metrics
-                metrics.update(compute_data_metrics(batch=batch, use_critic=self.use_critic))
+                metrics.update(compute_data_metrics(batch=batch, use_critic=self.use_critic, experiment_name=self.config.trainer.experiment_name, global_steps=self.global_steps, test_freq=self.config.trainer.test_freq))
                 metrics.update(compute_timing_metrics(batch=batch, timing_raw=timing_raw))
                 # TODO: implement actual tflpo and theoretical tflpo
                 n_gpus = self.resource_pool_manager.get_n_gpus()

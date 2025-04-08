@@ -6,7 +6,7 @@
 #SBATCH --partition=general
 
 source ~/miniconda3/etc/profile.d/conda.sh
-conda activate nfl
+conda activate countdown-curriculum
 
 CONTEXT_LENGTH=1024
 DATA_DISTRIBUTION="countdown-3-4-5-6"
@@ -19,14 +19,14 @@ export BASE_MODEL=/data/group_data/rl/cognitive_behaviors/global_step_75
 # export BASE_MODEL=/data/user_data/myang4/countdown/countdown-3-4-5-6-256-llama-grpo/actor/global_step_600
 # export BASE_MODEL=/data/user_data/myang4/countdown/count-3-4-5-6-to-countdown-6-7-8-9-256-llama-grpo/actor/global_step_600
 
-export DATA_DIR="/home/myang4/nfl/data/$DATA_DISTRIBUTION"
+export DATA_DIR="/home/myang4/countdown-curriculum/data/$DATA_DISTRIBUTION"
 export ROLLOUT_TP_SIZE=2
-export EXPERIMENT_NAME="$DATA_DISTRIBUTION-$CONTEXT_LENGTH-no-negative-EOS-grad"
+export EXPERIMENT_NAME="$DATA_DISTRIBUTION-$CONTEXT_LENGTH-no-positive-grad"
 export OUTPUT_DIR="/data/user_data/myang4/countdown/$EXPERIMENT_NAME"
 export SAVE_FREQ=-1
 
-ray stop --force && ray start --head
+# ray stop --force && ray start --head
 
-cd /home/myang4/nfl
+cd /home/myang4/countdown-curriculum
 
-bash /home/myang4/nfl/scripts/grpo/grpo.sh > /home/myang4/nfl/logs/$EXPERIMENT_NAME.log 2>&1
+bash /home/myang4/countdown-curriculum/scripts/grpo/grpo.sh > /home/myang4/countdown-curriculum/logs/$EXPERIMENT_NAME.log 2>&1
