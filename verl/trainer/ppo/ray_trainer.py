@@ -46,6 +46,9 @@ from verl.utils.tracking import ValidationGenerationsLogger
 from torch.utils.data import RandomSampler, SequentialSampler
 from torchdata.stateful_dataloader import StatefulDataLoader
 
+import json
+import verl.utils.hdfs_io as hdfs_io
+
 WorkerType = Type[Worker]
 
 
@@ -505,7 +508,7 @@ class RayPPOTrainer(object):
         # Log to each configured logger
         self.validation_generations_logger.log(self.config.trainer.logger, samples, self.global_steps)
 
-    def _validate(self):
+    def _validate(self, extrapolate=False):
         data_source_lst = []
         reward_extra_infos_dict: dict[str, list] = defaultdict(list)
 
@@ -513,6 +516,10 @@ class RayPPOTrainer(object):
         sample_inputs = []
         sample_outputs = []
         sample_scores = []
+
+        difficulties = []
+        lengths = []
+        reward_tensor_lst = []
 
         for test_data in self.val_dataloader:
             test_batch = DataProto.from_single_dict(test_data)
@@ -548,6 +555,7 @@ class RayPPOTrainer(object):
                 'recompute_log_prob': False,
                 'do_sample': self.config.actor_rollout_ref.rollout.val_kwargs.do_sample,
                 'validate': True,
+                'extrapolate': extrapolate,
             }
             print(f'test_gen_batch meta info: {test_gen_batch.meta_info}')
 
@@ -578,29 +586,119 @@ class RayPPOTrainer(object):
 
             data_source_lst.append(test_batch.non_tensor_batch.get('data_source', ['unknown'] * reward_tensor.shape[0]))
 
+            # --- newly added ---
+            reward_tensor_lst.append(reward_tensor)
+            difficulties.extend(map(lambda nums: len(nums), list(test_batch.non_tensor_batch['nums'])))
+            lengths.extend(map(lambda text: len(self.tokenizer.encode(text)), output_texts))
+            # -------------------
+
         self._maybe_log_val_generations(inputs=sample_inputs, outputs=sample_outputs, scores=sample_scores)
+
+        # --- newly added ---
+        # save rollouts
+        rollouts = []
+        for input, output, score, ref_score, length in zip(sample_inputs, sample_outputs, sample_scores, difficulties, lengths):
+            rollouts.append(
+                {
+                    'input': input,
+                    'output': output,
+                    'score': score,
+                    'ref_score': ref_score,
+                    'length': length,
+                }
+            )
+
+        # save rollouts as json
+        if self.config.trainer.default_local_dir is not None:
+            hdfs_io.makedirs(self.config.trainer.default_local_dir, exist_ok=True)
+        rollouts_json = json.dumps(rollouts)
+        rollouts_save_location = f"{self.config.trainer.default_local_dir}/{self.global_steps}_{'extrapolation_' if extrapolate else ''}rollouts.json"
+        with open(rollouts_save_location, 'w') as f:
+            f.write(rollouts_json)
+        # -------------------
 
         for lst in reward_extra_infos_dict.values():
             assert len(lst) == 0 or len(lst) == len(sample_scores)
 
         data_sources = np.concatenate(data_source_lst, axis=0)
 
-        data_src2var2metric2val = process_validation_metrics(data_sources, sample_inputs, reward_extra_infos_dict)
+        # --- newly added ---
+        reward_tensor = torch.cat(reward_tensor_lst, dim=0).sum(-1).cpu()  # (batch_size,)
+        data_sources = np.concatenate(data_source_lst, axis=0)
+        # evaluate test_score based on data source
+        data_source_reward = defaultdict(list)
+        data_source_length = defaultdict(list)
+        data_source_0_length = defaultdict(list)
+        data_source_1_length = defaultdict(list)
+        data_source_reward_by_difficulty = defaultdict(lambda: defaultdict(list))
+        data_source_length_by_difficulty = defaultdict(lambda: defaultdict(list))
+        data_source_0_length_by_difficulty = defaultdict(lambda: defaultdict(list))
+        data_source_1_length_by_difficulty = defaultdict(lambda: defaultdict(list))
+        
+        for i in range(reward_tensor.shape[0]):
+            data_source = data_sources[i]
+            difficulty = difficulties[i]
+            reward = reward_tensor[i].item()
+
+            data_source_reward[data_source].append(reward)
+            data_source_reward_by_difficulty[data_source][difficulty].append(reward)
+            
+            data_source_length[data_source].append(lengths[i])
+            data_source_length_by_difficulty[data_source][difficulty].append(lengths[i])
+
+            if reward == 0:
+                data_source_0_length[data_source].append(lengths[i])
+                data_source_0_length_by_difficulty[data_source][difficulty].append(lengths[i])
+            elif reward == 1:
+                data_source_1_length[data_source].append(lengths[i])
+                data_source_1_length_by_difficulty[data_source][difficulty].append(lengths[i])
+            else:
+                raise ValueError(f"reward must be 0 or 1, but got {reward}")
+            
 
         metric_dict = {}
-        for data_source, var2metric2val in data_src2var2metric2val.items():
-            core_var = "acc" if "acc" in var2metric2val else "final_reward"
-            for var_name, metric2val in var2metric2val.items():
-                n_max = max([int(name.split("@")[-1].split("/")[0]) for name in metric2val.keys()])
-                for metric_name, metric_val in metric2val.items():
-                    if var_name == core_var and any(
-                            metric_name.startswith(pfx)
-                            for pfx in ["mean", "std", "maj", "best"]) and f"@{n_max}/" in metric_name:
-                        metric_sec = "val-core"
-                    else:
-                        metric_sec = "val-aux"
-                    pfx = f"{metric_sec}/{data_source}/{var_name}/{metric_name}"
-                    metric_dict[pfx] = metric_val
+        for data_source, rewards in data_source_reward.items():
+            metric_dict[f"{'extrapolation_' if extrapolate else ''}val/reward/mean"] = np.mean(rewards)
+            metric_dict[f"{'extrapolation_' if extrapolate else ''}val/length/mean"] = np.mean(data_source_length[data_source])
+            metric_dict[f"{'extrapolation_' if extrapolate else ''}val/0_length/mean"] = np.mean(data_source_0_length[data_source]) if len(data_source_0_length[data_source]) > 0 else -1
+            metric_dict[f"{'extrapolation_' if extrapolate else ''}val/1_length/mean"] = np.mean(data_source_1_length[data_source]) if len(data_source_1_length[data_source]) > 0 else -1
+
+            
+            for difficulty, per_difficulty_rewards in data_source_reward_by_difficulty[data_source].items():
+                metric_dict[f"{'extrapolation_' if extrapolate else ''}val/reward/{difficulty}"] = np.mean(per_difficulty_rewards)
+            
+            for difficulty, per_difficulty_lengths in data_source_length_by_difficulty[data_source].items():
+                metric_dict[f"{'extrapolation_' if extrapolate else ''}val/length/{difficulty}"] = np.mean(per_difficulty_lengths)
+            
+            for difficulty in data_source_length_by_difficulty[data_source].keys():
+                per_difficulty_lengths = data_source_0_length_by_difficulty[data_source][difficulty]
+                mean_incorrect_length = np.mean(per_difficulty_lengths) if len(per_difficulty_lengths) > 0 else -1
+                metric_dict[f"{'extrapolation_' if extrapolate else ''}val/0_length/{difficulty}"] = mean_incorrect_length
+            
+            for difficulty in data_source_length_by_difficulty[data_source].keys():
+                per_difficulty_lengths = data_source_1_length_by_difficulty[data_source][difficulty]
+                mean_correct_length = np.mean(per_difficulty_lengths) if len(per_difficulty_lengths) > 0 else -1
+                metric_dict[f"{'extrapolation_' if extrapolate else ''}val/1_length/{difficulty}"] = mean_correct_length
+        
+
+        # -------------------
+
+        # data_src2var2metric2val = process_validation_metrics(data_sources, sample_inputs, reward_extra_infos_dict)
+
+        # metric_dict = {}
+        # for data_source, var2metric2val in data_src2var2metric2val.items():
+        #     core_var = "acc" if "acc" in var2metric2val else "final_reward"
+        #     for var_name, metric2val in var2metric2val.items():
+        #         n_max = max([int(name.split("@")[-1].split("/")[0]) for name in metric2val.keys()])
+        #         for metric_name, metric_val in metric2val.items():
+        #             if var_name == core_var and any(
+        #                     metric_name.startswith(pfx)
+        #                     for pfx in ["mean", "std", "maj", "best"]) and f"@{n_max}/" in metric_name:
+        #                 metric_sec = "val-core"
+        #             else:
+        #                 metric_sec = "val-aux"
+        #             pfx = f"{metric_sec}/{data_source}/{var_name}/{metric_name}"
+        #             metric_dict[pfx] = metric_val
 
         return metric_dict
 
@@ -802,6 +900,7 @@ class RayPPOTrainer(object):
                           config=OmegaConf.to_container(self.config, resolve=True))
 
         self.global_steps = 0
+        self.global_compute_steps = 0
 
         # load checkpoint before doing anything
         self._load_checkpoint()
@@ -812,6 +911,11 @@ class RayPPOTrainer(object):
             val_metrics = self._validate()
             pprint(f'Initial validation metrics: {val_metrics}')
             logger.log(data=val_metrics, step=self.global_steps)
+            
+            extrapolation_val_metrics = self._validate(extrapolate=True)
+            pprint(f'Initial extrapolation validation metrics: {extrapolation_val_metrics}')
+            logger.log(data=extrapolation_val_metrics, step=self.global_steps)
+            
             if self.config.trainer.get('val_only', False):
                 return
 
@@ -821,6 +925,7 @@ class RayPPOTrainer(object):
         # we start from step 1
         self.global_steps += 1
         last_val_metrics = None
+        last_extrapolation_val_metrics = None
 
         for epoch in range(self.config.trainer.total_epochs):
             for batch_dict in self.train_dataloader:
@@ -959,9 +1064,12 @@ class RayPPOTrainer(object):
                         (is_last_step or  self.global_steps % self.config.trainer.test_freq == 0):
                         with _timer('testing', timing_raw):
                             val_metrics: dict = self._validate()
+                            extrapolation_val_metrics: dict = self._validate(extrapolate=True)
                             if is_last_step:
                                 last_val_metrics = val_metrics
+                                last_extrapolation_val_metrics = extrapolation_val_metrics
                         metrics.update(val_metrics)
+                        metrics.update(extrapolation_val_metrics)
 
                     if self.config.trainer.save_freq > 0 and ( is_last_step or \
                             self.global_steps % self.config.trainer.save_freq == 0):
@@ -971,6 +1079,7 @@ class RayPPOTrainer(object):
                 # collect metrics
                 metrics.update(compute_data_metrics(batch=batch, use_critic=self.use_critic, experiment_name=self.config.trainer.experiment_name, global_steps=self.global_steps, test_freq=self.config.trainer.test_freq))
                 metrics.update(compute_timing_metrics(batch=batch, timing_raw=timing_raw))
+                metrics.update({"steps/steps": self.global_steps, "steps/compute_matched_steps": self.global_compute_steps})
                 # TODO: implement actual tflpo and theoretical tflpo
                 n_gpus = self.resource_pool_manager.get_n_gpus()
                 metrics.update(compute_throughout_metrics(batch=batch, timing_raw=timing_raw, n_gpus=n_gpus))
@@ -980,8 +1089,10 @@ class RayPPOTrainer(object):
 
                 if is_last_step:
                     pprint(f'Final validation metrics: {last_val_metrics}')
+                    pprint(f'Final extrapolation validation metrics: {last_extrapolation_val_metrics}')
                     progress_bar.close()
                     return
 
                 progress_bar.update(1)
                 self.global_steps += 1
+                self.global_compute_steps += torch.sum(batch.batch['response_mask']).detach().item()

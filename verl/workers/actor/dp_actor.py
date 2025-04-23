@@ -282,7 +282,6 @@ class DataParallelPPOActor(BasePPOActor):
                     response_length = responses.size(1)
                     attention_mask = data['attention_mask']
                     response_mask = attention_mask[:, -response_length:]
-                    eos_mask = response_mask.clone()
                     old_log_prob = data['old_log_probs']
                     advantages = data['advantages']
 
@@ -296,22 +295,27 @@ class DataParallelPPOActor(BasePPOActor):
                     # all return: (bsz, response_length)
                     entropy, log_prob = self._forward_micro_batch(micro_batch=data, temperature=temperature)
                     
-                    # print("\n\n======================= Advantages =======================\n\n")
-                    # print(advantages)
-                    # print("\n\n")
-
-                    for i, (r, a) in enumerate(zip(responses, advantages)):
-                        
-                        # if advantage is negative
-                        if a[0] < 0:
-                        # do not propagate loss for </think> ...
-                            indices = torch.nonzero(r == 524, as_tuple=False)
-                            if len(indices) > 0:
-                                first_index = indices[0].item()
-                                print(f"Response at index {first_index}: {r[first_index]}")
-
-                                eos_mask[i, first_index:] = 0
-                                eos_mask[i, 0:] = 0
+                    # ------- add gradient masking -------
+                    eos_mask = response_mask.clone()
+                    if self.config.gradients == "normal":
+                        pass
+                    
+                    elif self.config.gradients == "positive":
+                        eos_mask = eos_mask * (advantages > 0).float()
+                    
+                    elif self.config.gradients == "negative":
+                        eos_mask = eos_mask * (advantages < 0).float()
+                    
+                    elif self.config.gradients == "no-eos":
+                        for i, (r, a) in enumerate(zip(responses, advantages)):
+                            # if advantage is negative
+                            if a[0] < 0:
+                                # do not propagate loss for </think> ...
+                                indices = torch.nonzero(r == 524, as_tuple=False)
+                                if len(indices) > 0:
+                                    first_index = indices[0].item()
+                                    eos_mask[i, first_index:] = 0
+                    # -------------------------------------
 
                     pg_loss, pg_clipfrac, ppo_kl, pg_clipfrac_lower = compute_policy_loss(
                         old_log_prob=old_log_prob,

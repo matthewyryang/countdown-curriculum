@@ -164,16 +164,18 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True, experiment_n
             mean_incorrect_length = -1
         
         metrics[f'difficulty/reward/{difficulty}'] = mean_reward
-        metrics[f'difficulty/0_length/{difficulty}'] = mean_correct_length
-        metrics[f'difficulty/1_length/{difficulty}'] = mean_incorrect_length
+        metrics[f'difficulty/0_length/{difficulty}'] = mean_incorrect_length
+        metrics[f'difficulty/1_length/{difficulty}'] = mean_correct_length
         metrics[f'difficulty/length/{difficulty}'] = mean_length
 
     if (global_steps - 1) % test_freq == 0:
         # advantage histograms
-        advantages = valid_adv[:, 0].detach().cpu().numpy().tolist()
+        advantages = valid_adv.detach().cpu().tolist()
         sns.histplot(advantages)
-        os.makedirs(f'outputs/{experiment_name}/{global_steps}', exist_ok=True)
-        plt.savefig(f'outputs/{experiment_name}/{global_steps}/advantage.png')
+        os.makedirs(f'/home/cmu/countdown-curriculum/outputs/{experiment_name}/{global_steps}', exist_ok=True)
+        plt.savefig(f'/home/cmu/countdown-curriculum/outputs/{experiment_name}/{global_steps}/advantage.png')
+        plt.clf()
+        plt.close()
 
     return metrics
 

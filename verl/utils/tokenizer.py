@@ -31,6 +31,8 @@ def set_pad_token_id(tokenizer):
         tokenizer.pad_token = tokenizer.eos_token
         warnings.warn(f'tokenizer.pad_token is None. Now set to {tokenizer.eos_token}')
 
+def empty_template(question: str):
+    return question
 
 def hf_tokenizer(name_or_path, correct_pad_token=True, correct_gemma2=True, **kwargs):
     """Create a huggingface pretrained tokenizer which correctness handles eos and pad tokens.
@@ -56,6 +58,15 @@ def hf_tokenizer(name_or_path, correct_pad_token=True, correct_gemma2=True, **kw
     tokenizer = AutoTokenizer.from_pretrained(name_or_path, **kwargs)
     if correct_pad_token:
         set_pad_token_id(tokenizer)
+    
+    def custom_apply_chat_template(prompt, add_generation_prompt=False, tokenize=False):
+        if tokenize:
+            return tokenizer.encode(empty_template(prompt[0]["content"]))
+        else:
+            return empty_template(prompt[0]["content"])
+    
+    tokenizer.apply_chat_template = custom_apply_chat_template
+
     return tokenizer
 
 

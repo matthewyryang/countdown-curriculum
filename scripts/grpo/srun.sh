@@ -1,19 +1,13 @@
-export CUDA_VISIBLE_DEVICES=4,5
+export CUDA_VISIBLE_DEVICES=4,5,6,7
+export N_GPUS=4
 
-CONTEXT_LENGTH=1024
-DATA_DISTRIBUTION="countdown-3-4-5-6"
+export CONTEXT_LENGTH=512
+export DATA_DISTRIBUTION="5-6"
+export EPOCHS=3
+# export BASE_MODEL=d1shs0ap/cognitive-behaviors-Llama-3.2-3B
+export BASE_MODEL=/home/cmu/countdown-curriculum/checkpoints/3-4-256-both-curriculum/global_step_150/hf
 
-export N_GPUS=2
-export BATCH_SIZE_PER_GPU=8
-export CONTEXT_LENGTH=$CONTEXT_LENGTH
-
-export BASE_MODEL=d1shs0ap/cognitive-behaviors-Llama-3.2-3B
-
-export DATA_DIR="/home/cmu/countdown-curriculum/data/$DATA_DISTRIBUTION"
-export ROLLOUT_TP_SIZE=2
-export EXPERIMENT_NAME="$DATA_DISTRIBUTION-$CONTEXT_LENGTH-no-positive-grad"
-export OUTPUT_DIR="/data/user_data/cmu/countdown/$EXPERIMENT_NAME"
-export SAVE_FREQ=-1
+export EXPERIMENT_NAME="$DATA_DISTRIBUTION-$CONTEXT_LENGTH-both-curriculum"
 
 # ray stop --force && ray start --head
 
