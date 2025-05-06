@@ -30,6 +30,7 @@ from contextlib import contextmanager
 from omegaconf import DictConfig
 import torch
 import torch.distributed
+import os
 from tensordict import TensorDict
 from torch import nn
 from typing import Any, Union
@@ -86,7 +87,6 @@ class vLLMRollout(BaseRollout):
 
         if kwargs.get('train_tp', None) is not None:
             # deployed with megatron
-            import os
             os.environ['CUDA_TIMER_STREAM_KAFKA_ENABLE'] = '0'
             os.environ['MEGATRON_IMPORT_TIMERS'] = '0'
             train_tp = kwargs.get('train_tp', None)
@@ -126,6 +126,7 @@ class vLLMRollout(BaseRollout):
             enable_chunked_prefill=config.enable_chunked_prefill,
             enable_prefix_caching=True,
             trust_remote_code=trust_remote_code,
+            seed=int(os.getenv("RANK", "0")) // tensor_parallel_size,
         )
 
         # Offload vllm model to reduce peak memory usage
@@ -220,7 +221,9 @@ class vLLMRollout(BaseRollout):
                 'top_k': -1,
                 'min_p': 0.0,
                 'temperature': 0,
-                'n': 1  # if greedy, only 1 response
+                'n': 1,  # if greedy, only 1 response
+                'max_tokens': self.config.extrapolation_length if extrapolate else self.config.response_length,
+
             }
         elif is_validate:
             # TODO: try **

@@ -296,15 +296,15 @@ class DataParallelPPOActor(BasePPOActor):
                     entropy, log_prob = self._forward_micro_batch(micro_batch=data, temperature=temperature)
                     
                     # ------- add gradient masking -------
-                    eos_mask = response_mask.clone()
+                    # eos_mask = response_mask.clone()
                     if self.config.gradients == "normal":
                         pass
                     
                     elif self.config.gradients == "positive":
-                        eos_mask = eos_mask * (advantages > 0).float()
+                        response_mask = response_mask * (advantages > 0).float()
                     
                     elif self.config.gradients == "negative":
-                        eos_mask = eos_mask * (advantages < 0).float()
+                        response_mask = response_mask * (advantages < 0).float()
                     
                     elif self.config.gradients == "no-eos":
                         for i, (r, a) in enumerate(zip(responses, advantages)):
@@ -314,14 +314,14 @@ class DataParallelPPOActor(BasePPOActor):
                                 indices = torch.nonzero(r == 524, as_tuple=False)
                                 if len(indices) > 0:
                                     first_index = indices[0].item()
-                                    eos_mask[i, first_index:] = 0
+                                    response_mask[i, first_index:] = 0
                     # -------------------------------------
 
                     pg_loss, pg_clipfrac, ppo_kl, pg_clipfrac_lower = compute_policy_loss(
                         old_log_prob=old_log_prob,
                         log_prob=log_prob,
                         advantages=advantages,
-                        response_mask=eos_mask,
+                        response_mask=response_mask,
                         cliprange=clip_ratio,
                         cliprange_low=clip_ratio_low,
                         cliprange_high=clip_ratio_high,

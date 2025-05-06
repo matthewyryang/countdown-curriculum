@@ -138,8 +138,9 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True, experiment_n
     correct_lengths_by_difficulty = defaultdict(list)
     incorrect_lengths_by_difficulty = defaultdict(list)
     rewards_by_difficulty = defaultdict(list)
+    zero_advantage_ratio_by_difficulty = defaultdict(list)
 
-    for nums, reward, length in zip(batch.non_tensor_batch['nums'], sequence_reward, response_length):
+    for nums, reward, length, adv, mask in zip(batch.non_tensor_batch['nums'], sequence_reward, response_length, advantages, response_mask):
         difficulty = len(nums)
         binary_reward = 1 if reward > 0.9 else 0
         
@@ -148,6 +149,8 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True, experiment_n
             correct_lengths_by_difficulty[difficulty].append(length.detach().item())
         else:
             incorrect_lengths_by_difficulty[difficulty].append(length.detach().item())
+        
+        zero_advantage_ratio_by_difficulty[difficulty].extend(list(adv.detach() * mask.detach().float() == 0))
     
     for difficulty in rewards_by_difficulty:
         mean_reward = np.mean(rewards_by_difficulty[difficulty])
@@ -167,15 +170,8 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True, experiment_n
         metrics[f'difficulty/0_length/{difficulty}'] = mean_incorrect_length
         metrics[f'difficulty/1_length/{difficulty}'] = mean_correct_length
         metrics[f'difficulty/length/{difficulty}'] = mean_length
-
-    if (global_steps - 1) % test_freq == 0:
-        # advantage histograms
-        advantages = valid_adv.detach().cpu().tolist()
-        sns.histplot(advantages)
-        os.makedirs(f'/home/cmu/countdown-curriculum/outputs/{experiment_name}/{global_steps}', exist_ok=True)
-        plt.savefig(f'/home/cmu/countdown-curriculum/outputs/{experiment_name}/{global_steps}/advantage.png')
-        plt.clf()
-        plt.close()
+        
+        metrics[f'difficulty/zero_advantage_ratio/{difficulty}'] = np.mean(zero_advantage_ratio_by_difficulty[difficulty])
 
     return metrics
 
