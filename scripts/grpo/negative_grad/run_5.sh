@@ -1,5 +1,5 @@
-export CUDA_VISIBLE_DEVICES=0,1,2,3
-export N_GPUS=4
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+export N_GPUS=8
 export GRAD="positive"
 export DATA_DISTRIBUTION="train-5-5"
 export CONTEXT_LENGTH=2048
