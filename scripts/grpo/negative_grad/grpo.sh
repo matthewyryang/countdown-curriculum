@@ -7,7 +7,7 @@ python3 -m verl.trainer.main_ppo \
     data.max_prompt_length=256 \
     data.max_response_length=$CONTEXT_LENGTH \
     data.max_extrapolation_length=$((2 * CONTEXT_LENGTH)) \
-    data.shuffle=True \
+    data.shuffle=False \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.model.use_remove_padding=True \
     actor_rollout_ref.model.path=$BASE_MODEL \
@@ -17,7 +17,7 @@ python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.actor.use_kl_loss=True \
     actor_rollout_ref.actor.kl_loss_coef=0.001 \
     actor_rollout_ref.actor.kl_loss_type=low_var_kl \
-    actor_rollout_ref.actor.entropy_coeff=0 \
+    actor_rollout_ref.actor.entropy_coeff=0.001 \
     actor_rollout_ref.model.enable_gradient_checkpointing=True \
     actor_rollout_ref.actor.fsdp_config.param_offload=False \
     actor_rollout_ref.actor.fsdp_config.optimizer_offload=False \
