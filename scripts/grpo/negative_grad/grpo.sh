@@ -1,7 +1,7 @@
 python3 -m verl.trainer.main_ppo \
     algorithm.adv_estimator=grpo \
     data.train_files=/home/cmu/countdown-curriculum/data/countdown/$DATA_DISTRIBUTION.parquet \
-    data.val_files=/home/cmu/countdown-curriculum/data/countdown/test-3-6.parquet \
+    data.val_files=/home/cmu/countdown-curriculum/data/countdown/test-5-6.parquet \
     data.train_batch_size=128 \
     data.val_batch_size=256 \
     data.max_prompt_length=256 \
@@ -47,6 +47,6 @@ python3 -m verl.trainer.main_ppo \
     trainer.n_gpus_per_node=$N_GPUS \
     trainer.resume_mode=auto \
     trainer.resume_from_path=null \
-    trainer.save_freq=150 \
-    trainer.test_freq=12 \
+    trainer.save_freq=30 \
+    trainer.test_freq=15 \
     trainer.total_epochs=$EPOCHS 2>&1 | tee verl_demo.log
