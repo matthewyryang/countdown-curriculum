@@ -67,7 +67,7 @@ if __name__ == '__main__':
             return data
         return process_fn
     
-    dataset = dataset.map(function=make_map_fn('train'), with_indices=True)
+    dataset = dataset.map(function=make_map_fn(args.split), with_indices=True)
 
     os.makedirs(args.local_dir, exist_ok=True)
     dataset.to_parquet(os.path.join(args.local_dir, f'{args.split}-{args.lower}-{args.upper}.parquet'))

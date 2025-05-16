@@ -48,5 +48,5 @@ python3 -m verl.trainer.main_ppo \
     trainer.resume_mode=auto \
     trainer.resume_from_path=null \
     trainer.save_freq=60 \
-    trainer.test_freq=30 \
+    trainer.test_freq=15 \
     trainer.total_epochs=$EPOCHS 2>&1 | tee verl_demo.log
