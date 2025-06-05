@@ -32,14 +32,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--local_dir', default='/home/myang4/countdown-curriculum/data/countdown')
     parser.add_argument('--split', default='train')
-    parser.add_argument('--lower', type=int, default=1)
-    parser.add_argument('--upper', type=int, default=13)
-    parser.add_argument('--remote_dir', default='d1shs0ap/countdown-final')
+    parser.add_argument('--remote_dir', default='d1shs0ap/countdown-3-6-9')
     parser.add_argument('--template_type', type=str, default='base')
 
     args = parser.parse_args()
 
-    dataset = load_dataset(args.remote_dir, split=args.split).filter(lambda x: args.lower <= len(x['nums']) <= args.upper)
+    dataset = load_dataset(args.remote_dir, split=args.split)
 
     def make_map_fn(split):
         def process_fn(example, idx):
@@ -70,4 +68,4 @@ if __name__ == '__main__':
     dataset = dataset.map(function=make_map_fn(args.split), with_indices=True)
 
     os.makedirs(args.local_dir, exist_ok=True)
-    dataset.to_parquet(os.path.join(args.local_dir, f'{args.split}-{args.lower}-{args.upper}.parquet'))
+    dataset.to_parquet(os.path.join(args.local_dir, f'{args.split}-3-6-9.parquet'))
